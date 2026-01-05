@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1,
+    "action": "ACCEPT",
+    "proto": "any",
+    "src": "any",
+    "dst": "127.0.0.1",
+    "dport": "any",
+    "comment": "Allow localhost"
+  },
+  {
+    "id": 20,
+    "action": "ACCEPT",
+    "proto": "tcp",
+    "src": "any",
+    "dst": "any",
+    "dport": 443,
+    "comment": "Allow HTTPS"
+  },
+  {
+    "id": 19,
+    "action": "ACCEPT",
+    "proto": "udp",
+    "src": "any",
+    "dst": "any",
+    "dport": 53,
+    "comment": "Allow DNS"
+  },
+  {
+    "id": 17,
+    "action": "ACCEPT",
+    "proto": "any",
+    "src": "any",
+    "dst": "10.0.2.15",
+    "dport": "any",
+    "comment": "Allow traffic"
+  },
+  {
+    "id": 21,
+    "action": "ACCEPT",
+    "proto": "any",
+    "src": "any",
+    "dst": "8.8.8.8",
+    "dport": 80,
+    "comment": "Allow HTTP"
+  },
+  {
+    "id": 18,
+    "action": "DROP",
+    "proto": "any",
+    "src": "any",
+    "dst": "any",
+    "dport": "any",
+    "comment": "Default deny"
+  }
+]
