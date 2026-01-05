@@ -1,10 +1,13 @@
 ## Setting up Virtual Environment
 #### Copy all the commands bellow and paste on the terminal
 >sudo apt update
+>
 >sudo apt install -y python3 python3-venv python3-dev build-essential
+>
 >sudo apt install -y libnetfilter-queue-dev
 
 >deactivate 2>/dev/null
+>
 >rm -rf venv
 >python3 -m venv venv
 >source venv/bin/activate
