@@ -9,15 +9,21 @@
 >deactivate 2>/dev/null
 >
 >rm -rf venv
+>
 >python3 -m venv venv
+>
 >source venv/bin/activate
+>
 >python3 -m pip install -U pip wheel setuptools
 
 >python3 -m pip install NetfilterQueue
+>
 >python3 -m pip install flask
+>
 >python3 -m pip install scapy
 
 >python3 --version
+>
 >python3 -c "import netfilterqueue; print('OK')"
 
 ## How to run this program
