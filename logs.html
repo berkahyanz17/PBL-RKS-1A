@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Firewall Logs</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+</head>
+
+<body>
+<div class="container">
+  <div class="topbar">
+    <div class="brand">
+      <h1 style="display:flex; align-items:center; gap:10px;"><span class="logo">🛡️</span>Firewall Logs</h1>
+      <p>Live packet decisions and traffic statistics.</p>
+    </div>
+
+    <div class="actions">
+      <span class="badge">1A: <span class="kbd">PBL RKS</span></span>
+      <a class="btn" href="/">Home</a>
+      <span class="badge"><span class="tl" id="dosLight" style="margin:0;"></span> Logs</span>
+      <a class="btn" href="/about">About</a>
+      <span class="badge">Packets: <b id="pktCount">0</b></span>
+      <button class="btn" id="themeToggle" title="Toggle light/dark">🌙</button>
+    </div>
+  </div>
+
+  <div class="grid three" style="margin-top:16px;">
+    <div class="card">
+      <h2>Log Filters</h2>
+
+      <form method="get" action="/logs" class="form-grid">
+        <div class="field">
+          <label>Verdict</label>
+          <select name="verdict">
+            <option value="all" {% if verdict == "all" %}selected{% endif %}>all</option>
+            <option value="accept" {% if verdict == "accept" %}selected{% endif %}>accept</option>
+            <option value="drop" {% if verdict == "drop" %}selected{% endif %}>drop</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Protocol</label>
+          <select name="proto">
+            <option value="all" {% if proto == "all" %}selected{% endif %}>all</option>
+            <option value="tcp" {% if proto == "tcp" %}selected{% endif %}>tcp</option>
+            <option value="udp" {% if proto == "udp" %}selected{% endif %}>udp</option>
+            <option value="icmp" {% if proto == "icmp" %}selected{% endif %}>icmp</option>
+          </select>
+        </div>
+
+        <div class="actions" style="grid-column:1/-1; margin-top:6px;">
+          <button class="btn btn-primary" type="submit">Apply</button>
+          <a class="btn" href="/logs">Reset</a>
+        </div>
+      </form>
+
+      <hr class="sep">
+
+      <form method="post" action="/logs/clear"
+            onsubmit="return confirm('Clear all logs?');">
+        <button class="btn btn-danger">Clear logs</button>
+      </form>
+
+      <p class="subtle" style="margin-top:10px;">
+        Tips: Keep filters on <span class="kbd">drop</span> for better analysis.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Live Statistics</h2>
+      <p class="subtle">Updated every 2 seconds.</p>
+
+      <table class="table table-compact">
+        <tr><th>Total packets</th><td id="m_total">0</td></tr>
+        <tr><th>Accepted</th><td id="m_accept">0</td></tr>
+        <tr><th>Dropped</th><td id="m_drop">0</td></tr>
+        <tr>
+          <th>Packets / second</th>
+          <td>
+            <span class="tl" id="dosLight"></span>
+            <span id="m_pps">0</span>
+            <span class="subtle">(5s)</span>
+          </td>
+        </tr>
+      </table>
+
+      <p class="subtle" style="margin-top:10px;">
+        PPS is computed from the last 5 seconds of logs.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>DoS Threshold</h2>
+      <p class="subtle">Packets rate monitor (per 5 seconds).</p>
+
+      <form method="post" action="/dos_config">
+        <div class="form-grid">
+          <div class="field">
+            <label>Warn (pkts / 5s)</label>
+            <input id="warnInput" name="warn_5s" inputmode="numeric" placeholder="50">
+            <small class="hint">Yellow indicator</small>
+          </div>
+
+          <div class="field">
+            <label>Temp-drop (pkts / 5s)</label>
+            <input id="dropInput" name="drop_5s" inputmode="numeric" placeholder="110">
+            <small class="hint">Red indicator</small>
+          </div>
+
+          <div class="actions" style="margin-top:10px;">
+            <button class="btn btn-primary" type="submit">Apply</button>
+          </div>
+        </div>
+      </form>
+
+      <hr class="sep">
+
+      <p class="subtle">
+        <b>Green</b> = safe · <b>Yellow</b> = warning · <b>Red</b> = temporary drop
+      </p>
+    </div>
+
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="topbar" style="padding:0; border:none; background:none;">
+      <div class="brand">
+        <h2 style="margin:0;">Live Logs</h2>
+        <p class="subtle" style="margin:6px 0 0;">
+          New rows append automatically (no refresh).
+        </p>
+      </div>
+    </div>
+
+    <table class="table" style="margin-top:12px;">
+      <thead>
+      <tr>
+        <th>Time</th>
+        <th>Verdict</th>
+        <th>Proto</th>
+        <th>Src → Dst</th>
+        <th>Sport</th>
+        <th>Dport</th>
+        <th>Note</th>
+      </tr>
+      </thead>
+
+      <tbody id="logBody">
+      {% for row in rows %}
+        <tr data-id="{{ row[0] }}">
+          <td>{{ row[1] }}</td>
+          <td>{{ row[2] }}</td>
+          <td>{{ row[3] }}</td>
+          <td>{{ row[4] }} → {{ row[5] }}</td>
+          <td>{{ row[6] }}</td>
+          <td>{{ row[7] }}</td>
+          <td>{{ row[8] }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <footer style="margin-top:32px; text-align:center;">
+    <hr class="sep">
+    <p class="subtle">
+      Built with <b>Python</b>, <b>Flask</b>, <b>Scapy</b>, <b>NetfilterQueue</b>, 
+      <b>iptables</b>, and <b>Linux</b>.
+    </p>
+    <p class="subtle">
+      Educational project — userspace firewall demonstration.
+    </p>
+  </footer>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

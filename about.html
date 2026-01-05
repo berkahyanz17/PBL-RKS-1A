@@ -1,0 +1,500 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <title>About | Weft</title>
+</head>
+
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <h1 style="display:flex; align-items:center; gap:10px;"><span class="logo">🛡️</span>About Weft</h1>
+        <p>Overview · Documentation · Glossary · Credits</p>
+      </div>
+
+      <div class="actions">
+        <span class="badge">1A: <span class="kbd">PBL RKS</span></span>
+        <a class="btn" href="/">Home</a>
+        <a class="btn" href="/logs">Logs</a>
+        <span class="badge"><span class="tl" id="dosLight" style="margin:0;"></span> About</span>
+        <span class="badge">Packets: <b id="pktCount">0</b></span>
+        <button class="btn" id="themeToggle" title="Toggle light/dark">🌙</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="about-hero">
+        <div>
+          <h2 style="margin:0;">Userspace Packet Filtering Firewall (NFQUEUE)</h2>
+          <p class="subtle" style="margin-top:6px;">
+            Weft demonstrates real packet interception using Linux Netfilter and NFQUEUE,
+            rule-based filtering (ACCEPT/DROP), logging, and a web dashboard for user interface.
+          </p>
+
+          <div class="chip-row chip-row-scroll" style="margin-top:10px;">
+            <button class="chip chip-btn" type="button" data-code="code-python">Python</button>
+            <button class="chip chip-btn" type="button" data-code="code-flask">Flask</button>
+            <button class="chip chip-btn" type="button" data-code="code-scapy">Scapy</button>
+            <button class="chip chip-btn" type="button" data-code="code-nfq">NetfilterQueue</button>
+            <button class="chip chip-btn" type="button" data-code="code-iptables">iptables</button>
+            <button class="chip chip-btn" type="button" data-code="code-sqlite">SQLite</button>
+            <button class="chip chip-btn" type="button" data-code="code-linux">Linux</button>
+          </div>
+        </div>
+      <div class="about-actions">
+          <a class="btn btn-primary" href="/demo">Open Video Demo</a>
+        <a class="btn" href="https://github.com/berkahyanz17/PBL-RKS-1A.git">Github Link</a>
+      </div>
+    </div>
+
+    <div class="codepanel" id="codePanel" hidden>
+      <div class="codepanel-head">
+        <div class="codepanel-title">
+          <b id="codeTitle">Code Preview</b>
+          <div class="subtle" id="codeHint">Click a chip to view the relevant excerpt.</div>
+        </div>
+
+        <div class="codepanel-actions">
+          <button class="btn btn-icon" type="button" id="codeCopy" title="Copy code">⧉</button>
+          <button class="btn btn-icon" type="button" id="codeClose" title="Close">✕</button>
+        </div>
+      </div>
+
+      <div class="codepanel-body">
+        <div class="code-snippet" id="code-python" data-title="Python — Run UI + Engine" hidden>
+          <pre class="codebox codebox-scroll" data-copy>
+# UI (recommended to use venv)
+source venv/bin/activate
+python web.py
+
+# Engine (sudo required for NFQUEUE)
+sudo venv/bin/python engine.py</pre>
+          <p class="subtle">UI can run as normal user. Engine needs sudo because it talks to kernel NFQUEUE.</p>
+        </div>
+
+        <div class="code-snippet" id="code-flask" data-title="Flask — Routes used by the dashboard" hidden>
+          <pre class="codebox codebox-scroll" data-copy>
+@app.get("/")
+def index():
+    return render_template("index.html", rules=load_rules())
+
+@app.get("/logs")
+def logs():
+    return render_template("logs.html", rows=read_logs())
+
+@app.get("/stats")
+def stats():
+    return {"total": total, "accept": accept, "drop": drop, "pps": pps}</pre>
+          <p class="subtle">Flask displays rules/logs and provides JSON stats for live UI updates.</p>
+        </div>
+
+        <div class="code-snippet" id="code-scapy" data-title="Scapy — Parse packet fields" hidden>
+          <pre class="codebox codebox-scroll" data-copy>
+p = IP(pkt.get_payload())
+src, dst = p.src, p.dst
+
+if p.haslayer(TCP):
+    proto = "tcp"
+    sport, dport = int(p[TCP].sport), int(p[TCP].dport)
+elif p.haslayer(UDP):
+    proto = "udp"
+    sport, dport = int(p[UDP].sport), int(p[UDP].dport)
+elif p.haslayer(ICMP):
+    proto = "icmp"
+    sport = dport = None</pre>
+          <p class="subtle">ICMP has no ports; TCP/UDP do. This is why the UI treats ICMP differently.</p>
+        </div>
+
+        <div class="code-snippet" id="code-nfq" data-title="NetfilterQueue — Receive packets from kernel" hidden>
+          <pre class="codebox codebox-scroll" data-copy>
+def main():
+    init_db()
+    write_dos_state("safe")
+
+    nfq = NetfilterQueue()
+    nfq.bind(QUEUE_NUM, cb)   # cb(packet) decides ACCEPT/DROP
+    print(f"[engine] listening on NFQUEUE {QUEUE_NUM}")
+    nfq.run()</pre>
+          <p class="subtle">Kernel pauses queued packets until the engine returns a verdict.</p>
+        </div>
+
+        <div class="code-snippet" id="code-iptables" data-title="iptables — Enable / Disable interception" hidden>
+          <pre class="codebox codebox-scroll" data-copy>
+# Enable
+#!/usr/bin/env bash 
+set -e
+
+QUEUE_NUM=1
+sudo iptables -D OUTPUT -j NFQUEUE --queue-num $QUEUE_NUM --queue-bypass 2>/dev/null || true
+sudo iptables -I OUTPUT -j NFQUEUE --queue-num $QUEUE_NUM --queue-bypass
+echo "[+] NFQUEUE OUTPUT enabled"
+
+# Disable 
+#!/usr/bin/env bash
+set -e
+
+QUEUE_NUM=1
+sudo iptables -D OUTPUT -j NFQUEUE --queue-num $QUEUE_NUM --queue-bypass 2>/dev/null || true
+echo "[+] NFQUEUE disabled"</pre>
+          <p class="subtle">Your scripts wrap these commands so you can switch interception on/off safely.</p>
+        </div>
+
+        <div class="code-snippet" id="code-sqlite" data-title="SQLite — Log firewall decisions" hidden>
+          <pre class="codebox codebox-scroll" data-copy>
+def log_event(verdict, proto, src, dst, sport, dport, note=""):
+    if dst == "127.0.0.1":
+        return
+
+    con = sqlite3.connect(DB_FILE)
+    cur = con.cursor()
+    cur.execute(
+        "INSERT INTO logs(ts, verdict, proto, src, dst, sport, dport, note) "
+        "VALUES(datetime('now'),?,?,?,?,?,?,?)",
+        (verdict, proto, src, dst, sport, dport, note),
+    )
+    con.commit()
+    con.close()</pre>
+          <p class="subtle">Logs are stored locally and shown in /logs for demonstration evidence.</p>
+        </div>
+
+        <div class="code-snippet" id="code-linux" data-title="Linux — Why root is needed" hidden>
+          <pre class="codebox codebox-scroll" data-copy>
+# root is needed for:
+# - modifying iptables rules (kernel networking)
+# - binding to NFQUEUE to receive packets
+
+# the UI can run as a normal user.</pre>
+          <p class="subtle">This is a VM demo. In production, management UI would be separated further.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <div class="grid two" style="margin-top:16px;">
+      <div class="card">
+        <h2>Documentation</h2>
+        <p class="subtle">Expand sections for details.</p>
+
+        <details class="acc" open>
+          <summary>
+            <span>Architecture</span>
+            <span class="acc-hint">kernel ↔ userspace</span>
+          </summary>
+
+          <p class="subtle" style="margin-top:10px;">
+            Packets are redirected by <b>iptables</b> into <b>NFQUEUE</b>. The engine reads the
+            packet in userspace, evaluates rules, then returns a verdict to the kernel.
+          </p>
+
+          <pre class="codebox">[Internet / Host Traffic]
+          |
+          v
++-------------------------+
+| Linux Kernel (Netfilter)| 
++-------------------------+
+          |                        shell scripts
+          | iptables -j NFQUEUE <---+
+          v
++-------------------------+        rules.json
+| NFQUEUE (queue #1)      | <--------------------+
++-------------------------+                      |
+          |                                      |
+          v                                      |
++-------------------------+        sqlite logs   |
+| engine.py (Python)      | --------------+      |
+| parse + match + verdict |               |      |
++-------------------------+               |      |
+          |                               |      |
+          v                               v      |
++-------------------------+         +------------------+
+| Kernel applies verdict  |         | web.py (Flask UI)|
+| ACCEPT or DROP          |         | rules + logs view|
++-------------------------+         +------------------+</pre>
+
+          <p class="subtle">
+            The UI is separated from packet interception so the network traffic remains clear and safe.
+          </p>
+        </details>
+
+        <details class="acc">
+          <summary>
+            <span>How to run in the terminal</span>
+            <span class="acc-hint">3 terminals</span>
+          </summary>
+
+          <div class="mini-steps">
+            <div class="step">
+              <div class="step-title">Terminal 1 — Web UI</div>
+              <pre class="codebox">source venv/bin/activate
+python web.py</pre>
+            </div>
+
+            <div class="step">
+              <div class="step-title">Terminal 2 — Engine</div>
+              <pre class="codebox">sudo venv/bin/python engine.py</pre>
+            </div>
+
+            <div class="step">
+              <div class="step-title">Terminal 3 — Enable interception</div>
+              <pre class="codebox">./scripts/enable.sh
+# to stop safely:
+./scripts/disable.sh</pre>
+            </div>
+          </div>
+        </details>
+
+        <details class="acc">
+          <summary>
+            <span>Quick test traffic</span>
+            <span class="acc-hint">copy & run</span>
+          </summary>
+
+          <p class="subtle" style="margin-top:10px;">
+            Run these commands to generate packets and prove ACCEPT/DROP behavior:
+          </p>
+
+          <div class="code-actions">
+            <button class="btn" type="button" onclick="copyText('demoCmds')">Copy commands</button>
+          </div>
+
+          <textarea id="demoCmds" class="readonly" rows="30" style="resize: none;">dig example.com
+curl -I https://example.com
+curl -I http://example.com
+ping -c 2 8.8.8.8
+nc -vz 8.8.8.8 22
+nc -vu 8.8.8.8 123
+
+# Install dig if needed:
+# sudo apt install -y dnsutils
+# If nc isn't installed: 
+# sudo apt install -y netcat-openbsd</textarea>
+
+          <p class="subtle" style="margin-top:10px;">
+            Then open <span class="kbd">Logs</span> to show the decisions live.
+          </p>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>Glossary & Credits</h2>
+        <p class="subtle">Some simple word definitions from this project.</p>
+
+        <details class="acc" open>
+          <summary>
+            <span>Glossary</span>
+            <span class="acc-hint">key terms</span>
+          </summary>
+
+          <div class="gloss">
+            <div class="g">
+              <b>Netfilter</b>
+              <p class="subtle">Linux kernel framework for packet filtering and interception.</p>
+            </div>
+            <div class="g">
+              <b>iptables</b>
+              <p class="subtle">Tool to configure Netfilter rules (used here to send packets to NFQUEUE).</p>
+            </div>
+            <div class="g">
+              <b>NFQUEUE</b>
+              <p class="subtle">Kernel queue that forwards packets to userspace and waits for a verdict.</p>
+            </div>
+            <div class="g">
+              <b>Verdict</b>
+              <p class="subtle">Decision returned to kernel: <b>ACCEPT</b> or <b>DROP</b>.</p>
+            </div>
+            <div class="g">
+              <b>TCP</b>
+              <p class="subtle">Reliable connection protocol (ports). Used for HTTP/HTTPS/SSH.</p>
+            </div>
+            <div class="g">
+              <b>UDP</b>
+              <p class="subtle">Fast connectionless protocol (ports). Common for DNS.</p>
+            </div>
+            <div class="g">
+              <b>ICMP</b>
+              <p class="subtle">Control/diagnostic protocol (no ports). Used for ping.</p>
+            </div>
+            <div class="g">
+              <b>Default policy</b>
+              <p class="subtle">Action when no rule matches (default allow or default deny).</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="acc">
+          <summary>
+            <span>Credits</span>
+            <span class="acc-hint">tools used</span>
+          </summary>
+
+          <ul>
+            <li><b>Python</b> — engine + web logic</li>
+            <li><b>Flask</b> — UI routes and templates</li>
+            <li><b>Scapy</b> — packet parsing in userspace</li>
+            <li><b>NetfilterQueue</b> — NFQUEUE bindings</li>
+            <li><b>Linux + iptables</b> — kernel interception</li>
+            <li><b>SQLite</b> — firewall logs database</li>
+          </ul>
+
+          <p class="subtle">
+            Educational VM project: userspace filtering emphasizes clarity over performance.
+          </p>
+        </details>
+
+        <details class="acc">
+          <summary>
+            <span>Project limitations</span>
+            <span class="acc-hint">honest scope</span>
+          </summary>
+
+          <p class="subtle" style="margin-top:10px;">
+            This is a learning demo, not a production firewall. Userspace processing is slower
+            than kernel-only filtering. The goal is to show concepts: interception, parsing,
+            rule matching, and observable ACCEPT/DROP decisions.
+          </p>
+        </details>
+      </div>
+
+    </div>
+<div class="card" style="margin-top:16px;">
+  <h2>FAQ</h2>
+  <p class="subtle">Frequently asked question about this project.</p>
+
+  <details class="acc" open>
+    <summary>
+      <span>Why does the engine need root / sudo?</span>
+      <span class="acc-hint">permissions</span>
+    </summary>
+    <p class="subtle" style="margin-top:10px;">
+      Because the firewall intercepts packets using <b>iptables + NFQUEUE</b>, which interacts with kernel
+      networking. Modifying iptables rules and binding to NFQUEUE requires elevated privileges.
+      The web UI itself can run as a normal user; only the packet engine and enable/disable scripts require sudo.
+    </p>
+  </details>
+
+  <details class="acc">
+    <summary>
+      <span>Where do the packets come from? How are they received?</span>
+      <span class="acc-hint">NFQUEUE flow</span>
+    </summary>
+    <p class="subtle" style="margin-top:10px;">
+      Packets originate from normal network activity on the VM (curl, ping, DNS, netcat-openbsd, browsing).
+      iptables forwards selected packets to <b>NFQUEUE</b>. The kernel pauses the packet, sends it to the
+      userspace engine via NetfilterQueue, and waits. The engine returns a verdict (<b>ACCEPT</b>/<b>DROP</b>),
+      and the kernel applies it immediately.
+    </p>
+  </details>
+
+  <details class="acc">
+    <summary>
+      <span>Is this efficient / production-ready?</span>
+      <span class="acc-hint">limitations</span>
+    </summary>
+    <p class="subtle" style="margin-top:10px;">
+      This is an <b>educational userspace</b> firewall demo. Userspace processing is slower than
+      kernel-only filtering and is not intended for high-throughput production use.
+      The goal is to demonstrate concepts: interception, parsing, rule matching, and observable decisions.
+    </p>
+  </details>
+
+  <details class="acc">
+    <summary>
+      <span>Why NAT vs Bridged vs Host-only in a VM?</span>
+      <span class="acc-hint">network mode</span>
+    </summary>
+    <p class="subtle" style="margin-top:10px;">
+      <b>NAT</b> is simplest and safe to demonstrate: the VM can access the internet and generate traffic, but it is
+      less exposed to external inbound connections. <b>Bridged</b> makes the VM appear as a device on the same LAN,
+      which is useful if you want another machine to send traffic into the VM. <b>Host-only</b> isolates traffic
+      to host ↔ VM only. For this project, NAT is enough unless you need traffic from another device.
+    </p>
+  </details>
+
+  <details class="acc">
+    <summary>
+      <span>How do you avoid the UI spamming the logs?</span>
+      <span class="acc-hint">clean logs</span>
+    </summary>
+    <p class="subtle" style="margin-top:10px;">
+      The dashboard polls endpoints like <span class="kbd">/stats</span> and <span class="kbd">/logs_tail</span>,
+      which creates localhost traffic. To keep logs meaningful, localhost traffic can be excluded from logging,
+      while still allowing the UI to function normally.
+    </p>
+  </details>
+</div>
+<div class="card" style="margin-top:16px;">
+  <h2>Live Demo Script</h2>
+  <p class="subtle">
+    Web Packet Filtering Firewall demonstration steps.
+  </p>
+
+  <ol class="demo-steps">
+    <li>
+      <b>Dashboard</b><br>
+      When the main page opened, in the background, the packets are intercepted using
+      <b>iptables → NFQUEUE</b>, then it processed in userspace, and returned with
+      ACCEPT or DROP verdicts.
+    </li>
+
+    <li>
+      <b>Apply a policy preset</b><br>
+      We can choose <span class="kbd">Professional (Default Deny)</span> or
+      <span class="kbd">Safer (Default Allow)</span> to manage how rule
+      order determines packet behavior.
+    </li>
+
+    <li>
+      <b>Generate traffic</b><br>
+      Run test commands to produce real packets:
+      <pre class="codebox">dig example.com
+curl -I https://example.com
+curl -I http://example.com
+ping -c 2 8.8.8.8
+nc -vz 8.8.8.8 22
+nc -vu 8.8.8.8 123</pre>
+    </li>
+
+    <li>
+      <b>Observe live decisions</b><br>
+      With <span class="kbd">Logs</span> opened, its shown that ACCEPT/DROP entries 
+      appearing in real time along with packet counters and statistics.
+    </li>
+
+    <li>
+      <b>DoS Threshold monitoring</b><br>
+      Point to the traffic indicator (green/yellow/red) and explain that packet
+      rates are monitored per source IP. When thresholds are exceeded, traffic
+      can be temporarily dropped for demonstration purposes.
+    </li>
+
+    <li>
+      <b>Safe shutdown</b><br>
+      Finaly, interception can be disabled safely using:
+      <pre class="codebox">./scripts/disable.sh</pre>
+    </li>
+  </ol>
+
+  <p class="subtle" style="margin-top:10px;">
+    This project focuses on clarity and correctness rather than performance.
+  </p>
+</div>
+
+    <footer style="margin-top:32px; text-align:center;">
+    <hr class="sep">
+    <p class="subtle">
+      Built with <b>Python</b>, <b>Flask</b>, <b>Scapy</b>, <b>NetfilterQueue</b>, 
+      <b>iptables</b>, and <b>Linux</b>.
+    </p>
+    <p class="subtle">
+      Educational project — userspace firewall demonstration.
+    </p>
+  </footer>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

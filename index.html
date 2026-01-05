@@ -1,0 +1,274 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weft | Web Packet Filtering Firewall</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" style="--webkit-text-fill-color: whitesmoke;">
+</head>
+
+<body data-page="index">
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <h1 style="display:flex; align-items:center; gap:10px;"><span class="logo">🛡️</span>Weft: Web Packet Filtering Firewall (NFQUEUE)</h1>
+        <p>Rules → Engine verdict → Logs (dashboard)</p>
+      </div>
+
+      <div class="badges">
+        <span class="badge">1A: <span class="kbd">PBL RKS</span></span>
+        <span class="badge"><span class="tl" id="dosLight" style="margin:0;"></span> Home</span>
+        <a class="btn" href="/logs">Logs</a>
+        <a class="btn" href="/about">About</a>
+        <span class="badge">Packets: <b id="pktCount">0</b></span>
+        <button class="btn" id="themeToggle" title="Toggle light/dark">🌙</button>
+      </div>
+    </div>
+
+    <div class="grid two">
+      <div class="card">
+        <h2>Policy Presets</h2>
+        <p class="subtle">Pick a policy, then run the quick test on the right.</p>
+
+        <div class="actions">
+          <form method="post" action="/preset/professional">
+            <button class="btn {% if preset == 'professional' %}btn-primary{% endif %}">
+              Professional (Default Deny)
+            </button>
+          </form>
+
+          <form method="post" action="/preset/safer">
+            <button class="btn {% if preset == 'safer' %}btn-primary{% endif %}">
+              Safer (Default Allow)
+            </button>
+          </form>
+          <a class="btn" href="/export">Export rules (JSON)</a>
+          <a class="btn" href="/logs">View logs</a>
+        </div>
+
+        <hr class="sep">
+
+        <h3>How to run in the terminal</h3>
+        <p class="subtle">
+          T1: <span class="kbd">source venv/bin/activate</span> + <span class="kbd">python web.py</span><br>
+          T2: <span class="kbd">sudo venv/bin/python engine.py</span><br>
+          T3: <span class="kbd">./scripts/enable.sh</span>
+          (stop: <span class="kbd">./scripts/disable.sh</span>)
+        </p>
+
+        <p class="subtle">
+          If your network traffic feels stuck, run <span class="kbd">./scripts/disable.sh</span>.
+        </p>
+        <p class="subtle">
+          Then re-enable with <span class="kbd">./scripts/enable.sh</span>.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Quick Test</h2>
+        <p class="subtle">Click a preset to show test commands here.</p>
+
+        <div class="actions">
+          <a class="btn" href="/about">Learn more</a>
+          <span class="toast">Copies only command lines</span>
+          <button class="btn" type="button" onclick="copyCmd('cmdbox')">Copy commands</button>
+        </div>
+        <br>
+
+        {% if preset == "safer" %}
+          <textarea id="cmdbox" class="readonly" rows="7" readonly>curl -I http://example.com
+# should FAIL (HTTP tcp/80 blocked)
+
+curl -I https://example.com
+# should WORK (HTTPS allowed)
+
+ping -c 2 8.8.8.8
+# should FAIL (ICMP blocked)</textarea>
+
+        {% elif preset == "professional" %}
+          <textarea id="cmdbox" class="readonly" rows="7" readonly>dig example.com
+# should WORK (DNS udp/53 allowed)
+
+curl -I https://example.com
+# should WORK (HTTPS tcp/443 allowed)
+
+curl -I http://example.com
+# should FAIL (default deny)
+
+ping -c 2 8.8.8.8
+# should FAIL (default deny)
+
+# Install dig if needed:
+# sudo apt install -y dnsutils</textarea>
+
+        {% else %}
+          <textarea id="cmdbox" class="readonly" rows="7" readonly>Choose a preset above to show the test steps here.</textarea>
+  {% endif %}
+        </div>
+      </div>
+    <div class="card" style="margin-top:16px;">
+      <h2>Active Rules</h2>
+      <p class="subtle">Evaluated top → bottom. First match wins.</p>
+
+      <table class="table">
+        <tr>
+          <th>ID</th><th>Action</th><th>Proto</th><th>Src</th><th>Dst</th>
+          <th>DPort</th><th>Comment</th><th>Order</th><th>Delete</th>
+        </tr>
+
+        {% for r in rules %}
+        {% set is_system = (r.comment == "Allow localhost") %}
+        {% set c = (r.comment | lower) %}
+        {% set is_default = c.startswith("default allow") or c.startswith("default deny") %}
+        <tr>
+          <td class="mono">{{ loop.index }}</td>
+          <td>{{ r.action }}</td>
+          <td>{{ r.proto }}</td>
+          <td>{{ r.src }}</td>
+          <td>{{ r.dst }}</td>
+          <td>{{ r.dport }}</td>
+          <td>{{ r.comment }}</td>
+          <td>
+            {% if not is_system %}
+            <form method="post" action="/move/up/{{ r.id }}" style="display:inline;">
+              <button class="btn" type="submit">↑</button>
+            </form>
+            <form method="post" action="/move/down/{{ r.id }}" style="display:inline;">
+              <button class="btn" type="submit">↓</button>
+            </form>
+            {% else %}
+            <span class="subtle">locked</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if is_system %}
+              <span class="subtle">SYSTEM RULE</span>
+
+            {% elif is_default %}
+              <form method="post" action="/default/toggle" style="display:inline;"
+                    onsubmit="return confirm('Change default policy? This will swap Default Allow ↔ Default Deny.');">
+                <button class="btn btn-primary" type="submit" title="Toggle default policy" ><b>i</b></button>
+              </form>
+
+            {% else %}
+              <form method="post" action="/delete/{{ r.id }}" style="display:inline;"
+                    onsubmit="return confirm('Delete rule #{{loop.index }}?');">
+                <button class="btn btn-danger" type="submit">X</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="grid two" style="margin-top:16px;">
+
+      <div class="card">
+        <h2>Add Rule</h2>
+        <form method="post" action="/add">
+          <div class="form-grid">
+            <div class="field">
+              <label>Action</label>
+              <select name="action">
+                <option>ACCEPT</option>
+                <option>DROP</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Protocol</label>
+              <select name="proto">
+                <option>any</option>
+                <option>tcp</option>
+                <option>udp</option>
+                <option>icmp</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Source IP</label>
+              <input name="src" list="ipSuggestions" placeholder="any or 10.0.2.15">
+            </div>
+
+            <div class="field">
+              <label>Destination IP</label>
+              <input name="dst" list="ipSuggestions" placeholder="any or 8.8.8.8">
+            </div>
+
+            <div class="field">
+              <label>Destination Port</label>
+              <input name="dport" list="portSuggestions" placeholder="any or 80">
+              <small class="hint">ICMP has no ports → leave as “any”.</small>
+            </div>
+
+            <div class="field">
+              <label>Comment</label>
+              <input name="comment" placeholder="e.g., Block HTTP">
+            </div>
+          </div>
+          <div class="actions" style="margin-top:12px;">
+            <button type="submit" class="btn btn-primary">Add Rule</button>
+            <button type="button" class="btn" id="randomRuleBtn">🎲 Randomize</button>
+          </div>
+        </form>
+        <datalist id="ipSuggestions">
+          <option value="any">
+          <option value="127.0.0.1">
+          <option value="8.8.8.8">
+          <option value="1.1.1.1">
+        </datalist>
+
+        <datalist id="portSuggestions">
+          <option value="any">
+          <option value="22">SSH</option>
+          <option value="53">DNS</option>
+          <option value="80">HTTP</option>
+          <option value="443">HTTPS</option>
+        </datalist>
+      </div>
+
+      <div class="card">
+        <h2>Help</h2>
+        <p class="subtle">
+          <b>TCP</b> — reliable connections (HTTP, HTTPS, SSH)<br>
+          <b>UDP</b> — fast, connectionless (DNS, NTP)<br>
+          <b>ICMP</b> — diagnostics/control (ping), no ports
+        <p>
+        <hr class="sep">
+
+        <h3>Demo tips</h3>
+        <p class="subtle">
+          Use presets for fast demo. Use logs filters to show only <span class="kbd">DROP</span> or only <span class="kbd">icmp</span>.
+        </p>
+
+        <p class="subtle">
+          If <span class="kbd">dig</span> is missing: <span class="kbd">sudo apt install -y dnsutils</span><br>
+          If <span class="kbd">nc</span> is missing: <span class="kbd">sudo apt install -y netcat-openbsd</span>
+        </p>
+        <hr class="sep">
+        <p class="subtle"> Shortcuts: 
+          <span class="kbd">P</span> Professional ·
+          <span class="kbd">S</span> Safer ·
+          <span class="kbd">E</span> Export ·
+          <span class="kbd">L</span> Logs
+        </p>
+      </div>
+    </div>
+
+    <footer style="margin-top:32px; text-align:center;">
+      <hr class="sep">
+      <p class="subtle">
+        Built with <b>Python</b>, <b>Flask</b>, <b>Scapy</b>, <b>NetfilterQueue</b>, 
+        <b>iptables</b>, and <b>Linux</b>.
+      </p>
+      <p class="subtle">
+        Educational project — userspace firewall demonstration.
+      </p>
+    </footer>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
