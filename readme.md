@@ -19,7 +19,6 @@ python3 -m pip install -U pip wheel setuptools
 python3 -m pip install NetfilterQueue
 
 python3 -m pip install flask
-
 python3 -m pip install scapy
 
 python3 --version
