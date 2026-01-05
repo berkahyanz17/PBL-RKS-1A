@@ -1,29 +1,21 @@
 ## Setting up Virtual Environment
 #### Copy all the commands bellow and paste on the terminal
 >sudo apt update
-sudo apt install -y python3 python3-venv python3-dev build-essential
+>sudo apt install -y python3 python3-venv python3-dev build-essential
+>sudo apt install -y libnetfilter-queue-dev
 
-sudo apt install -y libnetfilter-queue-dev
+>deactivate 2>/dev/null
+>rm -rf venv
+>python3 -m venv venv
+>source venv/bin/activate
+>python3 -m pip install -U pip wheel setuptools
 
-deactivate 2>/dev/null
+>python3 -m pip install NetfilterQueue
+>python3 -m pip install flask
+>python3 -m pip install scapy
 
-rm -rf venv
-
-python3 -m venv venv
-
-source venv/bin/activate
-
-python3 -m pip install -U pip wheel setuptools
-
-python3 -m pip install NetfilterQueue
-
-python3 -m pip install flask
-
-python3 -m pip install scapy
-
-python3 --version
-
-python3 -c "import netfilterqueue; print('OK')"
+>python3 --version
+>python3 -c "import netfilterqueue; print('OK')"
 
 ## How to run this program
 
